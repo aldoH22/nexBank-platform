@@ -1,0 +1,167 @@
+version: '3.8'
+
+services:
+  # ============================================
+  #              MYSQL DATABASE
+  #   (Para auth-service y account-service)
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: nexbank-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: nexbank_auth
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-scripts/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  #           POSTGRESQL DATABASE
+  #        (Para loan-service y audit-service)
+  # ============================================
+  postgres:
+    image: postgres:15
+    container_name: nexbank-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: nexbank_loans
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  #            ORACLE DATABASE
+  #       (Para transaction-service)
+  # ============================================
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: nexbank-oracle
+    environment:
+      ORACLE_PASSWORD: oracle
+      ORACLE_DATABASE: NEXBANK
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  #            MONGODB DATABASE
+  #        (Para notification-service)
+  # ============================================
+  mongodb:
+    image: mongo:7
+    container_name: nexbank-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+      MONGO_INITDB_DATABASE: nexbank_notifications
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+      - ./init-scripts/mongodb:/docker-entrypoint-initdb.d
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  #               REDIS CACHE
+  #    (Para auth-service - refresh tokens)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: nexbank-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # ============================================
+  #            KAFKA MESSAGE BROKER
+  #     (Para comunicación asíncrona)
+  # ============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: nexbank-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - nexbank-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: nexbank-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - nexbank-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# ============================================
+#              VOLUMES
+# ============================================
+volumes:
+  mysql-data:
+  postgres-data:
+  oracle-data:
+  mongodb-data:
+  redis-data:
+
+# ============================================
+#              NETWORKS
+# ============================================
+networks:
+  nexbank-network:
+    driver: bridge

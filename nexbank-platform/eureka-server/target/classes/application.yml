@@ -1,0 +1,42 @@
+# ============================================
+#         CONFIGURACIÓN EUREKA SERVER
+# ============================================
+
+server:
+  port: 8761  # Puerto estándar de Eureka
+
+spring:
+  application:
+    name: eureka-server
+
+# Configuración de Eureka Server
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # Este servidor NO se registra a sí mismo
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    # Desactiva la auto-preservación en desarrollo
+    # (en producción debería estar en true)
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 4000
+
+# Logging
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
