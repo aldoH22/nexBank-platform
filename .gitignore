@@ -1,4 +1,10 @@
+# Maven / Java
 /target
+**/target/
+
+# IDE
 /.idea
+
+# Logs y compilados
 *.log
 *.class
