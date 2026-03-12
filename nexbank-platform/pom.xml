@@ -99,7 +99,7 @@
                 <version>${resilience4j.version}</version>
             </dependency>
 
-            <!-- Common Lib (nuestro módulo compartido) -->
+            <!-- Common Lib (nuestro modulo compartido) -->
             <dependency>
                 <groupId>com.nexbank</groupId>
                 <artifactId>common-lib</artifactId>

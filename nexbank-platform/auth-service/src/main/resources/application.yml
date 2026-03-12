@@ -8,14 +8,19 @@ server:
 spring:
   application:
     name: auth-service
-  
+
+  # Deshabilitar verificador de compatibilidad Spring Cloud
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
   # Configuracion de MySQL
   datasource:
     url: jdbc:mysql://localhost:3306/nexbank_auth
     username: nexbank_user
     password: nexbank_password
     driver-class-name: com.mysql.cj.jdbc.Driver
-  
+
   # Configuracion de JPA/Hibernate
   jpa:
     hibernate:
@@ -25,7 +30,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
-  
+
   # Configuracion de Redis
   data:
     redis:
@@ -60,3 +65,9 @@ logging:
     com.nexbank.auth: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+
+# Configuración JWT
+jwt:
+  secret: NexBankSecretKeyForJWTTokenGenerationThisIsAVeryLongSecretKey2024!
+  expiration: 86400000  # 24 horas en milisegundos
+  refresh-expiration: 604800000  # 7 días en milisegundos
