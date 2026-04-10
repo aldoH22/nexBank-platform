@@ -1,0 +1,87 @@
+# ============================================
+#     CONFIGURACIoN API GATEWAY
+# ============================================
+
+server:
+  port: 8080  # Puerto del Gateway
+
+spring:
+  application:
+    name: api-gateway
+  
+  # Deshabilitar verificador de compatibilidad Spring Cloud
+  cloud:
+    compatibility-verifier:
+      enabled: false
+    
+    # Configuracion de Gateway
+    gateway:
+      # Habilitar descubrimiento de servicios vía Eureka
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      
+      # Rutas (Routes) configuradas manualmente
+      routes:
+        # Ruta para auth-service
+        - id: auth-service
+          uri: lb://auth-service  # lb = load balancer (usa Eureka)
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=0  # No eliminar prefijo
+        
+        # Ruta para account-service (cuando lo creemos)
+        # - id: account-service
+        #   uri: lb://account-service
+        #   predicates:
+        #     - Path=/api/accounts/**
+        #   filters:
+        #     - StripPrefix=0
+      
+      # Configuracion global de CORS
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "*"  # En producción, especificar dominios
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowed-headers: "*"
+            allow-credentials: false
+
+# Configuracion de Eureka Client
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+# Configuracion de Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true  # Habilita endpoint /actuator/gateway/routes
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE  # ← Cambiar a TRACE
+    org.springframework.cloud.loadbalancer: TRACE  # ← Cambiar a TRACE
+    reactor.netty: DEBUG  # ← Cambiar a DEBUG
+    com.nexbank.gateway: DEBUG

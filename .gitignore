@@ -1,10 +1,49 @@
-# Maven / Java
-/target
-**/target/
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
 
-# IDE
-/.idea
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
 
-# Logs y compilados
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
-*.class
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Application specific
+application-local.yml
+application-local.properties
+
+# Docker volumes (datos persistentes)
+docker/volumes/
