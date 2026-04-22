@@ -32,13 +32,13 @@ spring:
           filters:
             - StripPrefix=0  # No eliminar prefijo
         
-        # Ruta para account-service (cuando lo creemos)
-        # - id: account-service
-        #   uri: lb://account-service
-        #   predicates:
-        #     - Path=/api/accounts/**
-        #   filters:
-        #     - StripPrefix=0
+        # Ruta para account-service
+        - id: account-service
+          uri: lb://account-service
+          predicates:
+           - Path=/api/v1/accounts/**
+          filters:
+           - StripPrefix=0
       
       # Configuracion global de CORS
       globalcors:

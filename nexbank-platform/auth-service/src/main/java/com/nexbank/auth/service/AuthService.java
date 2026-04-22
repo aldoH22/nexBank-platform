@@ -33,162 +33,171 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+        private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
-    private final JwtTokenProvider tokenProvider;
+        private final UserRepository userRepository;
+        private final RoleRepository roleRepository;
+        private final PasswordEncoder passwordEncoder;
+        private final AuthenticationManager authenticationManager;
+        private final JwtTokenProvider tokenProvider;
 
-    /**
-     * Registra un nuevo usuario en el sistema.
-     */
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        logger.info("Registrando nuevo usuario: {}", request.getEmail());
+        /**
+         * Registra un nuevo usuario en el sistema.
+         */
+        @Transactional
+        public AuthResponse register(RegisterRequest request) {
+                logger.info("Registrando nuevo usuario: {}", request.getEmail());
 
-        // Validar que el email no exista
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("EMAIL_EXISTS", "El email ya está registrado");
+                // Validar que el email no exista
+                if (userRepository.existsByEmail(request.getEmail())) {
+                        throw new BusinessException("EMAIL_EXISTS", "El email ya está registrado");
+                }
+
+                // Validar que el username no exista
+                if (userRepository.existsByUsername(request.getUsername())) {
+                        throw new BusinessException("USERNAME_EXISTS", "El username ya está en uso");
+                }
+
+                // Crear el usuario
+                User user = User.builder()
+                                .username(request.getUsername())
+                                .email(request.getEmail())
+                                .password(passwordEncoder.encode(request.getPassword()))
+                                .fullName(request.getFullName())
+                                .phoneNumber(request.getPhoneNumber())
+                                .enabled(true)
+                                .accountNonLocked(true)
+                                .build();
+
+                // Asignar rol USER por defecto
+                Role userRole = roleRepository.findByName(RoleName.ROLE_USER.name())
+                                .orElseGet(() -> {
+                                        // Si no existe el rol, crearlo
+                                        Role newRole = Role.builder()
+                                                        .name(RoleName.ROLE_USER.name())
+                                                        .description("Usuario Regular")
+                                                        .build();
+                                        return roleRepository.save(newRole);
+                                });
+
+                user.addRole(userRole);
+
+                // Guardar usuario
+                User savedUser = userRepository.save(user);
+
+                // Generar tokens
+                String accessToken = generateTokenForUser(savedUser);
+                String refreshToken = tokenProvider.generateRefreshToken(savedUser.getEmail());
+
+                logger.info("Usuario registrado exitosamente: {}", savedUser.getEmail());
+
+                return buildAuthResponse(savedUser, accessToken, refreshToken);
         }
 
-        // Validar que el username no exista
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("USERNAME_EXISTS", "El username ya está en uso");
+        /**
+         * Autentica un usuario y retorna tokens JWT.
+         */
+        @Transactional(readOnly = true)
+        public AuthResponse login(LoginRequest request) {
+                logger.info("Intento de login: {}", request.getEmail());
+
+                // Autenticar con Spring Security
+                Authentication authentication = authenticationManager.authenticate(
+                                new UsernamePasswordAuthenticationToken(
+                                                request.getEmail(),
+                                                request.getPassword()));
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                // Generar tokens
+                String accessToken = tokenProvider.generateToken(authentication);
+                String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
+
+                // Obtener usuario
+                UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+                User user = userRepository.findById(userDetails.getId())
+                                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Usuario no encontrado"));
+
+                logger.info("Login exitoso: {}", request.getEmail());
+
+                return buildAuthResponse(user, accessToken, refreshToken);
         }
 
-        // Crear el usuario
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
-                .phoneNumber(request.getPhoneNumber())
-                .enabled(true)
-                .accountNonLocked(true)
-                .build();
+        /**
+         * Obtiene información del usuario autenticado.
+         */
+        @Transactional(readOnly = true)
+        public UserInfoResponse getCurrentUser() {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        // Asignar rol USER por defecto
-        Role userRole = roleRepository.findByName(RoleName.ROLE_USER.name())
-                .orElseGet(() -> {
-                    // Si no existe el rol, crearlo
-                    Role newRole = Role.builder()
-                            .name(RoleName.ROLE_USER.name())
-                            .description("Usuario Regular")
-                            .build();
-                    return roleRepository.save(newRole);
-                });
+                if (authentication == null || !authentication.isAuthenticated()) {
+                        throw new BusinessException("NOT_AUTHENTICATED", "Usuario no autenticado");
+                }
 
-        user.addRole(userRole);
+                UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+                User user = userRepository.findById(userDetails.getId())
+                                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Usuario no encontrado"));
 
-        // Guardar usuario
-        User savedUser = userRepository.save(user);
-
-        // Generar tokens
-        String accessToken = generateTokenForUser(savedUser);
-        String refreshToken = tokenProvider.generateRefreshToken(savedUser.getEmail());
-
-        logger.info("Usuario registrado exitosamente: {}", savedUser.getEmail());
-
-        return buildAuthResponse(savedUser, accessToken, refreshToken);
-    }
-
-    /**
-     * Autentica un usuario y retorna tokens JWT.
-     */
-    @Transactional(readOnly = true)
-    public AuthResponse login(LoginRequest request) {
-        logger.info("Intento de login: {}", request.getEmail());
-
-        // Autenticar con Spring Security
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // Generar tokens
-        String accessToken = tokenProvider.generateToken(authentication);
-        String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
-
-        // Obtener usuario
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        User user = userRepository.findById(userDetails.getId())
-                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Usuario no encontrado"));
-
-        logger.info("Login exitoso: {}", request.getEmail());
-
-        return buildAuthResponse(user, accessToken, refreshToken);
-    }
-
-    /**
-     * Obtiene información del usuario autenticado.
-     */
-    @Transactional(readOnly = true)
-    public UserInfoResponse getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new BusinessException("NOT_AUTHENTICATED", "Usuario no autenticado");
+                return buildUserInfoResponse(user);
         }
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        User user = userRepository.findById(userDetails.getId())
-                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "Usuario no encontrado"));
+        /**
+         * Genera un token JWT para un usuario
+         */
+        private String generateTokenForUser(User user) {
+                UserDetailsImpl userDetails = UserDetailsImpl.build(user);
+                Authentication auth = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                return tokenProvider.generateToken(auth);
+        }
 
-        return buildUserInfoResponse(user);
-    }
+        /**
+         * Construye la respuesta de autenticación
+         */
+        private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
+                Set<String> roles = user.getRoles().stream()
+                                .map(Role::getName)
+                                .collect(Collectors.toSet());
 
-    /**
-     * Genera un token JWT para un usuario
-     */
-    private String generateTokenForUser(User user) {
-        UserDetailsImpl userDetails = UserDetailsImpl.build(user);
-        Authentication auth = new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities()
-        );
-        return tokenProvider.generateToken(auth);
-    }
+                return AuthResponse.builder()
+                                .token(accessToken)
+                                .refreshToken(refreshToken)
+                                .type("Bearer")
+                                .userId(user.getId())
+                                .username(user.getUsername())
+                                .email(user.getEmail())
+                                .roles(roles)
+                                .build();
+        }
 
-    /**
-     * Construye la respuesta de autenticación
-     */
-    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
-        Set<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toSet());
+        /**
+         * Construye la respuesta con información del usuario
+         */
+        private UserInfoResponse buildUserInfoResponse(User user) {
+                Set<String> roles = user.getRoles().stream()
+                                .map(Role::getName)
+                                .collect(Collectors.toSet());
 
-        return AuthResponse.builder()
-                .token(accessToken)
-                .refreshToken(refreshToken)
-                .type("Bearer")
-                .userId(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .roles(roles)
-                .build();
-    }
+                return UserInfoResponse.builder()
+                                .id(user.getId())
+                                .username(user.getUsername())
+                                .email(user.getEmail())
+                                .fullName(user.getFullName())
+                                .phoneNumber(user.getPhoneNumber())
+                                .roles(roles)
+                                .createdAt(user.getCreatedAt())
+                                .build();
+        }
 
-    /**
-     * Construye la respuesta con información del usuario
-     */
-    private UserInfoResponse buildUserInfoResponse(User user) {
-        Set<String> roles = user.getRoles().stream()
-                .map(Role::getName)
-                .collect(Collectors.toSet());
-
-        return UserInfoResponse.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phoneNumber(user.getPhoneNumber())
-                .roles(roles)
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
+        /**
+         * Obtiene un usuario por ID para consultas internas entre servicios.
+         */
+        @Transactional(readOnly = true)
+        public UserInfoResponse getUserById(Long userId) {
+                logger.info("Buscando usuario por ID: {}", userId);
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new BusinessException(
+                                                "USER_NOT_FOUND", "Usuario no encontrado con ID: " + userId));
+                return buildUserInfoResponse(user);
+        }
 }

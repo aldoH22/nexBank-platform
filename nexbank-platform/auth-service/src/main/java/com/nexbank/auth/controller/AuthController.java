@@ -36,16 +36,14 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request
-    ) {
+            @Valid @RequestBody RegisterRequest request) {
         logger.info("POST /api/auth/register - Registrando usuario: {}", request.getEmail());
 
         AuthResponse authResponse = authService.register(request);
 
         ApiResponse<AuthResponse> response = ApiResponse.success(
                 "Usuario registrado exitosamente",
-                authResponse
-        );
+                authResponse);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -58,16 +56,14 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest request
-    ) {
+            @Valid @RequestBody LoginRequest request) {
         logger.info("POST /api/auth/login - Intento de login: {}", request.getEmail());
 
         AuthResponse authResponse = authService.login(request);
 
         ApiResponse<AuthResponse> response = ApiResponse.success(
                 "Login exitoso",
-                authResponse
-        );
+                authResponse);
 
         return ResponseEntity.ok(response);
     }
@@ -96,8 +92,19 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> health() {
         ApiResponse<String> response = ApiResponse.success(
                 "Auth Service is running",
-                "OK"
-        );
+                "OK");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint interno para consulta de usuario por ID.
+     * Usado por otros microservicios via Feign Client.
+     */
+    @GetMapping("/users/{userId}")
+    public ResponseEntity<UserInfoResponse> getUserById(
+            @PathVariable Long userId) {
+        logger.info("GET /api/auth/users/{} - Consulta interna", userId);
+        UserInfoResponse userInfo = authService.getUserById(userId);
+        return ResponseEntity.ok(userInfo);
     }
 }
