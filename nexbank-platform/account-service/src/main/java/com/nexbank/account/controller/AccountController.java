@@ -1,5 +1,6 @@
 package com.nexbank.account.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.nexbank.account.dto.AccountResponse;
@@ -118,5 +120,29 @@ public class AccountController {
             @PathVariable Long accountId) {
         log.info("PATCH /api/v1/accounts/{}/close", accountId);
         return ResponseEntity.ok(accountService.closeAccount(accountId));
+    }
+
+    // ─────────────────────────────────────────────
+    // PATCH /api/v1/accounts/{accountId}/deposit
+    // Uso interno — llamado por transaction-service
+    // ─────────────────────────────────────────────
+    @PutMapping("/{accountId}/deposit")
+    public ResponseEntity<AccountResponse> deposit(
+            @PathVariable Long accountId,
+            @RequestParam BigDecimal amount) {
+        log.info("PATCH /api/v1/accounts/{}/deposit - amount: {}", accountId, amount);
+        return ResponseEntity.ok(accountService.depositToAccount(accountId, amount));
+    }
+
+    // ─────────────────────────────────────────────
+    // PATCH /api/v1/accounts/{accountId}/withdraw
+    // Uso interno — llamado por transaction-service
+    // ─────────────────────────────────────────────
+    @PutMapping("/{accountId}/withdraw")
+    public ResponseEntity<AccountResponse> withdraw(
+            @PathVariable Long accountId,
+            @RequestParam BigDecimal amount) {
+        log.info("PATCH /api/v1/accounts/{}/withdraw - amount: {}", accountId, amount);
+        return ResponseEntity.ok(accountService.withdrawFromAccount(accountId, amount));
     }
 }

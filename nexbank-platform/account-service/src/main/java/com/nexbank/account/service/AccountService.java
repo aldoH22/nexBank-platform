@@ -209,6 +209,61 @@ public class AccountService {
     }
 
     // ─────────────────────────────────────────────
+    // OPERACIONES DE SALDO (uso interno - Transaction Service)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Deposita un monto en la cuenta.
+     * Solo llamado internamente por transaction-service via Feign.
+     */
+    public AccountResponse depositToAccount(Long accountId, BigDecimal amount) {
+        log.info("Depósito de {} en cuenta ID: {}", amount, accountId);
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(
+                        "Cuenta no encontrada con ID: " + accountId));
+
+        if (!account.canTransact()) {
+            throw new AccountNotActiveException(
+                    "La cuenta no está activa para recibir depósitos: " + accountId);
+        }
+
+        account.deposit(amount);
+        Account updated = accountRepository.save(account);
+
+        UserResponse user = getUserOrThrow(account.getUserId());
+        return toResponse(updated, user);
+    }
+
+    /**
+     * Retira un monto de la cuenta.
+     * Solo llamado internamente por transaction-service via Feign.
+     */
+    public AccountResponse withdrawFromAccount(Long accountId, BigDecimal amount) {
+        log.info("Retiro de {} de cuenta ID: {}", amount, accountId);
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(
+                        "Cuenta no encontrada con ID: " + accountId));
+
+        if (!account.canTransact()) {
+            throw new AccountNotActiveException(
+                    "La cuenta no está activa para realizar retiros: " + accountId);
+        }
+
+        if (!account.hasSufficientBalance(amount)) {
+            throw new AccountNotActiveException(
+                    "Saldo insuficiente en cuenta: " + accountId);
+        }
+
+        account.withdraw(amount);
+        Account updated = accountRepository.save(account);
+
+        UserResponse user = getUserOrThrow(account.getUserId());
+        return toResponse(updated, user);
+    }
+
+    // ─────────────────────────────────────────────
     // MÉTODOS PRIVADOS
     // ─────────────────────────────────────────────
 
