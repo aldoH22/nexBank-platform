@@ -47,6 +47,14 @@ spring:
             - Path=/api/v1/transactions/**
           filters:
             - StripPrefix=0
+
+        # Ruta para transaction-service
+        - id: loan-service
+          uri: lb://loan-service
+          predicates:
+            - Path=/api/v1/loans/**
+          filters:
+            - StripPrefix=0
       
       # Configuracion global de CORS
       globalcors:
