@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.nexbank.common.event.TransactionEvent;
 import com.nexbank.transaction.client.AccountServiceClient;
 import com.nexbank.transaction.dto.AccountResponse;
 import com.nexbank.transaction.dto.TransactionRequest;
@@ -13,6 +14,7 @@ import com.nexbank.transaction.entity.Transaction;
 import com.nexbank.transaction.enums.TransactionStatus;
 import com.nexbank.transaction.exception.InsufficientFundsException;
 import com.nexbank.transaction.exception.TransactionException;
+import com.nexbank.transaction.kafka.TransactionEventPublisher;
 import com.nexbank.transaction.repository.TransactionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final AccountServiceClient accountServiceClient;
+    private final TransactionEventPublisher eventPublisher;
 
     // ─────────────────────────────────────────────
     // PROCESAR TRANSACCIÓN
@@ -111,7 +114,14 @@ public class TransactionService {
             throw new TransactionException("Error al procesar la transferencia");
         }
 
-        return toResponse(transactionRepository.save(transaction));
+        Transaction saved = transactionRepository.save(transaction);
+
+        // Publicar evento solo si completó
+        if (saved.getStatus() == TransactionStatus.COMPLETED) {
+            eventPublisher.publish(buildEvent(saved));
+        }
+
+        return toResponse(saved);
     }
 
     // ─────────────────────────────────────────────
@@ -153,7 +163,13 @@ public class TransactionService {
             throw new TransactionException("Error al procesar el depósito");
         }
 
-        return toResponse(transactionRepository.save(transaction));
+        Transaction saved = transactionRepository.save(transaction);
+
+        if (saved.getStatus() == TransactionStatus.COMPLETED) {
+            eventPublisher.publish(buildEvent(saved));
+        }
+
+        return toResponse(saved);
     }
 
     // ─────────────────────────────────────────────
@@ -197,7 +213,13 @@ public class TransactionService {
             throw new TransactionException("Error al procesar el retiro");
         }
 
-        return toResponse(transactionRepository.save(transaction));
+        Transaction saved = transactionRepository.save(transaction);
+
+        if (saved.getStatus() == TransactionStatus.COMPLETED) {
+            eventPublisher.publish(buildEvent(saved));
+        }
+
+        return toResponse(saved);
     }
 
     // ─────────────────────────────────────────────
@@ -221,6 +243,21 @@ public class TransactionService {
     // ─────────────────────────────────────────────
     // MÉTODOS PRIVADOS
     // ─────────────────────────────────────────────
+
+    private TransactionEvent buildEvent(Transaction t) {
+        return TransactionEvent.builder()
+                .transactionId(t.getTransactionId())
+                .type(t.getType().name())
+                .status(t.getStatus().name())
+                .sourceAccountId(t.getSourceAccountId())
+                .targetAccountId(t.getTargetAccountId())
+                .amount(t.getAmount())
+                .currency(t.getCurrency())
+                .description(t.getDescription())
+                .initiatedBy(t.getInitiatedBy())
+                .processedAt(t.getProcessedAt())
+                .build();
+    }
 
     private Transaction buildTransaction(TransactionRequest request, Long userId) {
         return Transaction.builder()

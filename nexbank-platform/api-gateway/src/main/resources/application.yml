@@ -55,6 +55,22 @@ spring:
             - Path=/api/v1/loans/**
           filters:
             - StripPrefix=0
+
+        # Ruta para notification-service
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # Ruta para audit-service
+        - id: audit-service
+          uri: lb://audit-service
+          predicates:
+            - Path=/api/v1/audit/**
+          filters:
+            - StripPrefix=0
       
       # Configuracion global de CORS
       globalcors:

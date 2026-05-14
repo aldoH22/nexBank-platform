@@ -1,0 +1,56 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+
+  cloud:
+    compatibility-verifier:
+      enabled: false
+
+  # MongoDB
+  data:
+    mongodb:
+      uri: mongodb://admin:admin@localhost:27017/nexbank_notifications?authSource=admin
+
+  # Kafka Consumer
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.nexbank.common.event"
+        spring.json.value.default.type: "java.lang.Object"
+
+kafka:
+  topics:
+    transaction-events: transaction-events
+    loan-events: loan-events
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.nexbank.notification: DEBUG
+    org.springframework.kafka: INFO

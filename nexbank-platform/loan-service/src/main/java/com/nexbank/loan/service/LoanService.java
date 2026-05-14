@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
+import com.nexbank.common.event.LoanEvent;
 import com.nexbank.loan.amortization.AmortizationEngine;
 import com.nexbank.loan.client.AccountServiceClient;
 import com.nexbank.loan.dto.AccountResponse;
@@ -22,6 +23,7 @@ import com.nexbank.loan.enums.PaymentStatus;
 import com.nexbank.loan.exception.ActiveLoanExistsException;
 import com.nexbank.loan.exception.LoanNotApprovedException;
 import com.nexbank.loan.exception.LoanNotFoundException;
+import com.nexbank.loan.kafka.LoanEventPublisher;
 import com.nexbank.loan.repository.CreditScoringRepository;
 import com.nexbank.loan.repository.LoanApplicationRepository;
 import com.nexbank.loan.repository.LoanPaymentRepository;
@@ -42,6 +44,7 @@ public class LoanService {
     private final CreditScoringEngine       scoringEngine;
     private final AmortizationEngine        amortizationEngine;
     private final AccountServiceClient      accountServiceClient;
+    private final LoanEventPublisher        eventPublisher;
 
     // ─────────────────────────────────────────────────────────────────────────
     // SOLICITAR PRÉSTAMO
@@ -123,6 +126,8 @@ public class LoanService {
         }
 
         loan = loanRepository.save(loan);
+        // Publicar evento según decisión
+        eventPublisher.publish(buildEvent(loan));
         return toResponse(loan);
     }
 
@@ -147,6 +152,8 @@ public class LoanService {
 
         loan.setStatus(LoanStatus.ACTIVE);
         loan = loanRepository.save(loan);
+
+        eventPublisher.publish(buildEvent(loan));
 
         log.info("Préstamo desembolsado. {} cuotas generadas para loanId: {}", schedule.size(), loanId);
         return toResponse(loan);
@@ -190,6 +197,7 @@ public class LoanService {
         if (pendingPayments == 0) {
             loan.setStatus(LoanStatus.PAID);
             loanRepository.save(loan);
+            eventPublisher.publish(buildEvent(loan));
             log.info("Préstamo {} completamente pagado", loanId);
         }
 
@@ -220,8 +228,22 @@ public class LoanService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // HELPERS
+    // Metodos privados
     // ─────────────────────────────────────────────────────────────────────────
+
+    private LoanEvent buildEvent(LoanApplication loan) {
+        return LoanEvent.builder()
+                .loanId(loan.getId())
+                .userId(loan.getUserId())
+                .loanType(loan.getLoanType().name())
+                .status(loan.getStatus().name())
+                .requestedAmount(loan.getRequestedAmount())
+                .monthlyPayment(loan.getMonthlyPayment())
+                .creditScore(loan.getCreditScore())
+                .rejectionReason(loan.getRejectionReason())
+                .occurredAt(LocalDateTime.now())
+                .build();
+    }
 
     private LoanApplication findLoanById(Long loanId) {
         return loanRepository.findById(loanId)

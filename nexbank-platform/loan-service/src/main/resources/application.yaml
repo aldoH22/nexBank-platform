@@ -24,6 +24,14 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
 eureka:
   client:
     service-url:
@@ -65,3 +73,8 @@ logging:
     com.nexbank.loan: DEBUG
     org.springframework.cloud.openfeign: DEBUG
     org.hibernate.SQL: DEBUG
+
+kafka:
+  bootstrap-servers: localhost:9092
+  topics:
+    loan-events: loan-events

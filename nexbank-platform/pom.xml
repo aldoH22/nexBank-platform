@@ -52,7 +52,7 @@
         <module>account-service</module>
         <module>transaction-service</module>
         <module>loan-service</module>
-        <!-- <module>notification-service</module> -->
+        <module>notification-service</module>
         <!-- <module>audit-service</module> -->
     </modules>
 
